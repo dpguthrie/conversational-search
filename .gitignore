@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment variables
+.env
+
+# uv
+uv.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Braintrust
+.braintrust/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data
+evals/test_data.json

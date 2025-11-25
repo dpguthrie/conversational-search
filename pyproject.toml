@@ -1,0 +1,27 @@
+[project]
+name = "conversational-search"
+version = "0.1.0"
+description = "Conversational search engine with citations and comprehensive evals"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "braintrust>=0.0.140",
+    "openai>=1.50.0",
+    "tavily-python>=0.5.0",
+    "python-dotenv>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.6.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
