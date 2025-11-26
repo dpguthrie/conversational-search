@@ -138,9 +138,43 @@ Conversation history:
         }
 
     def _synthesize(self, state: AgentState) -> AgentState:
-        """Synthesize answer with citations (placeholder)."""
-        # Placeholder - will implement in next task
-        return state
+        """Synthesize answer with citations.
+
+        Args:
+            state: Current agent state
+
+        Returns:
+            Updated state with AI message containing answer
+        """
+        query = state["current_query"]
+        sources = state.get("sources", [])
+
+        if not sources:
+            # No sources available, respond from general knowledge
+            messages = state["messages"] + [
+                SystemMessage(content="Answer the user's query based on your general knowledge. Be honest if you don't have enough information."),
+            ]
+            response = self.llm.invoke(messages)
+            answer = response.content
+        else:
+            # Generate answer with citations
+            synthesis_prompt = create_synthesis_prompt(query, sources)
+            response = self.llm.invoke([SystemMessage(content=synthesis_prompt)])
+            answer = response.content
+
+            # Validate citations
+            is_valid, errors = validate_citations(answer, len(sources))
+            if not is_valid:
+                # Log validation errors (in production, might retry or fix)
+                print(f"Citation validation errors: {errors}")
+
+        # Add AI message to conversation
+        new_messages = state["messages"] + [AIMessage(content=answer)]
+
+        return {
+            **state,
+            "messages": new_messages
+        }
 
     def _respond(self, state: AgentState) -> AgentState:
         """Format and return response (placeholder)."""
