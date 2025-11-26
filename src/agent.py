@@ -244,3 +244,34 @@ Conversation history:
 
         # Return last message
         return result["messages"][-1].content
+
+    def run_with_state(self, query: str, conversation_state: Optional[AgentState] = None) -> tuple[str, AgentState]:
+        """Run agent and return both response and state.
+
+        Args:
+            query: User query
+            conversation_state: Optional existing conversation state
+
+        Returns:
+            Tuple of (response_text, final_state)
+        """
+        # Initialize or use existing state
+        if conversation_state is None:
+            state: AgentState = {
+                "messages": [],
+                "sources": [],
+                "search_results": [],
+                "needs_search": False,
+                "current_query": "",
+            }
+        else:
+            state = conversation_state
+
+        # Add user message
+        state["messages"].append(HumanMessage(content=query))
+
+        # Run graph
+        result = self.graph.invoke(state)
+
+        # Return last message and full state
+        return result["messages"][-1].content, result
