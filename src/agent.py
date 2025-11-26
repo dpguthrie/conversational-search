@@ -107,9 +107,35 @@ Conversation history:
         return state["needs_search"]
 
     def _search(self, state: AgentState) -> AgentState:
-        """Search web using Tavily (placeholder)."""
-        # Placeholder - will implement in next task
-        return state
+        """Search web using Tavily.
+
+        Args:
+            state: Current agent state
+
+        Returns:
+            Updated state with search results and sources
+        """
+        query = state["current_query"]
+
+        # Optionally reformulate query for better search
+        # For now, use query directly
+
+        # Call Tavily
+        sources = self.search_tool.search(
+            query=query,
+            max_results=5,
+            search_depth="advanced"
+        )
+
+        # Append to state (preserve previous sources)
+        existing_sources = state.get("sources", [])
+        all_sources = existing_sources + sources
+
+        return {
+            **state,
+            "sources": all_sources,
+            "search_results": sources  # Latest search results
+        }
 
     def _synthesize(self, state: AgentState) -> AgentState:
         """Synthesize answer with citations (placeholder)."""
