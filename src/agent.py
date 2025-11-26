@@ -177,6 +177,60 @@ Conversation history:
         }
 
     def _respond(self, state: AgentState) -> AgentState:
-        """Format and return response (placeholder)."""
-        # Placeholder - will implement in next task
-        return state
+        """Format final response with source list.
+
+        Args:
+            state: Current agent state
+
+        Returns:
+            Updated state with formatted response
+        """
+        messages = state["messages"]
+        sources = state.get("sources", [])
+
+        # Get the last AI message (answer)
+        answer = messages[-1].content if messages else ""
+
+        # Append formatted sources
+        sources_text = format_sources(sources)
+        formatted_response = answer + sources_text
+
+        # Update the last message with formatted version
+        if messages:
+            messages[-1].content = formatted_response
+
+        return {
+            **state,
+            "messages": messages
+        }
+
+    def run(self, query: str, conversation_state: AgentState = None) -> str:
+        """Run agent on a query.
+
+        Args:
+            query: User query
+            conversation_state: Optional existing conversation state
+
+        Returns:
+            Agent response with citations
+        """
+        # Initialize or use existing state
+        if conversation_state is None:
+            state: AgentState = {
+                "messages": [],
+                "sources": [],
+                "search_results": [],
+                "needs_search": False,
+                "current_query": ""
+            }
+        else:
+            state = conversation_state
+
+        # Add user message
+        state["messages"].append(HumanMessage(content=query))
+
+        # Run graph
+        result = self.graph.invoke(state)
+
+        # Return last message
+        return result["messages"][-1].content
