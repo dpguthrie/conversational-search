@@ -22,8 +22,14 @@ class BaseEvaluator(Scorer, abc.ABC):
         """Initialize evaluator.
 
         Args:
-            model: OpenAI model to use (defaults to class attribute)
+            model: LLM model to use. Supports multiple providers via Braintrust proxy:
+                  - OpenAI: "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", etc.
+                  - Anthropic: "claude-3-5-sonnet-latest", "claude-sonnet-4-5-20250929", etc.
+                  - Or any custom model configured in Braintrust
+                  Defaults to class attribute.
             use_cot: Whether to use chain-of-thought (defaults to class attribute)
+
+        Note: Set BRAINTRUST_API_KEY environment variable to use non-OpenAI models.
         """
         self.model = model or self.model
         self.use_cot = use_cot if use_cot is not None else self.use_cot
