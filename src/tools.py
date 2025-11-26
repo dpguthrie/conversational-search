@@ -1,6 +1,6 @@
 """Tools for conversational search agent."""
 import os
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Literal
 from tavily import TavilyClient
 from datetime import datetime
 
@@ -20,7 +20,7 @@ class TavilySearchTool:
         self,
         query: str,
         max_results: int = 5,
-        search_depth: str = "advanced"
+        search_depth: Literal["basic", "advanced"] = "advanced"
     ) -> List[Dict[str, str]]:
         """Search the web using Tavily.
 

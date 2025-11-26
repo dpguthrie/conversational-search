@@ -245,7 +245,7 @@ Conversation history:
         # Return last message
         return result["messages"][-1].content
 
-    def run_with_state(self, query: str, conversation_state: Optional[AgentState] = None) -> tuple[str, AgentState]:
+    def run_with_state(self, query: str, conversation_state: Optional[AgentState] = None) -> tuple[str, dict]:
         """Run agent and return both response and state.
 
         Args:
