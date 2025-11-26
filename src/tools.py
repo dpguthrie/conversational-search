@@ -1,6 +1,6 @@
 """Tools for conversational search agent."""
 import os
-from typing import List, Dict
+from typing import List, Dict, Optional
 from tavily import TavilyClient
 from datetime import datetime
 
@@ -8,7 +8,7 @@ from datetime import datetime
 class TavilySearchTool:
     """Wrapper for Tavily search API."""
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: Optional[str] = None):
         """Initialize Tavily client.
 
         Args:

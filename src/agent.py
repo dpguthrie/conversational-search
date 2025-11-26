@@ -1,12 +1,16 @@
 """Conversational search agent using LangGraph."""
+
 import os
-from typing import Dict
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from typing import Optional
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+
 from src.state import AgentState
-from src.tools import TavilySearchTool
 from src.synthesis import create_synthesis_prompt, format_sources, validate_citations
+from src.tools import TavilySearchTool
 
 
 class ConversationalSearchAgent:
@@ -14,9 +18,9 @@ class ConversationalSearchAgent:
 
     def __init__(
         self,
-        openai_api_key: str = None,
-        tavily_api_key: str = None,
-        model: str = "gpt-4"
+        openai_api_key: Optional[str] = None,
+        tavily_api_key: Optional[str] = None,
+        model: str = "gpt-4",
     ):
         """Initialize agent.
 
@@ -28,12 +32,14 @@ class ConversationalSearchAgent:
         self.llm = ChatOpenAI(
             api_key=openai_api_key or os.getenv("OPENAI_API_KEY"),
             model=model,
-            temperature=0
+            temperature=0,
         )
-        self.search_tool = TavilySearchTool(api_key=tavily_api_key)
+        self.search_tool = TavilySearchTool(
+            api_key=tavily_api_key or os.getenv("TAVILY_API_KEY")
+        )
         self.graph = self._build_graph()
 
-    def _build_graph(self) -> StateGraph:
+    def _build_graph(self) -> CompiledStateGraph:
         """Build LangGraph state machine."""
         workflow = StateGraph(AgentState)
 
@@ -46,12 +52,7 @@ class ConversationalSearchAgent:
         # Add edges
         workflow.set_entry_point("route_query")
         workflow.add_conditional_edges(
-            "route_query",
-            self._should_search,
-            {
-                True: "search",
-                False: "synthesize"
-            }
+            "route_query", self._should_search, {True: "search", False: "synthesize"}
         )
         workflow.add_edge("search", "synthesize")
         workflow.add_edge("synthesize", "respond")
@@ -94,13 +95,13 @@ Conversation history:
 
         # Ask LLM to route
         response = self.llm.invoke([SystemMessage(content=routing_prompt)])
-        needs_search = "SEARCH" in response.content.upper() and "NO_SEARCH" not in response.content.upper()
+        response_content = response.content if isinstance(response.content, str) else str(response.content)
+        needs_search = (
+            "SEARCH" in response_content.upper()
+            and "NO_SEARCH" not in response_content.upper()
+        )
 
-        return {
-            **state,
-            "current_query": current_query,
-            "needs_search": needs_search
-        }
+        return {"messages": state["messages"], "sources": state.get("sources", []), "search_results": state.get("search_results", []), "current_query": current_query, "needs_search": needs_search}
 
     def _should_search(self, state: AgentState) -> bool:
         """Conditional edge function."""
@@ -122,9 +123,7 @@ Conversation history:
 
         # Call Tavily
         sources = self.search_tool.search(
-            query=query,
-            max_results=5,
-            search_depth="advanced"
+            query=query, max_results=5, search_depth="advanced"
         )
 
         # Append to state (preserve previous sources)
@@ -132,9 +131,11 @@ Conversation history:
         all_sources = existing_sources + sources
 
         return {
-            **state,
+            "messages": state["messages"],
             "sources": all_sources,
-            "search_results": sources  # Latest search results
+            "search_results": sources,
+            "needs_search": state["needs_search"],
+            "current_query": state["current_query"],
         }
 
     def _synthesize(self, state: AgentState) -> AgentState:
@@ -152,15 +153,17 @@ Conversation history:
         if not sources:
             # No sources available, respond from general knowledge
             messages = state["messages"] + [
-                SystemMessage(content="Answer the user's query based on your general knowledge. Be honest if you don't have enough information."),
+                SystemMessage(
+                    content="Answer the user's query based on your general knowledge. Be honest if you don't have enough information."
+                ),
             ]
             response = self.llm.invoke(messages)
-            answer = response.content
+            answer = response.content if isinstance(response.content, str) else str(response.content)
         else:
             # Generate answer with citations
             synthesis_prompt = create_synthesis_prompt(query, sources)
             response = self.llm.invoke([SystemMessage(content=synthesis_prompt)])
-            answer = response.content
+            answer = response.content if isinstance(response.content, str) else str(response.content)
 
             # Validate citations
             is_valid, errors = validate_citations(answer, len(sources))
@@ -172,8 +175,11 @@ Conversation history:
         new_messages = state["messages"] + [AIMessage(content=answer)]
 
         return {
-            **state,
-            "messages": new_messages
+            "messages": new_messages,
+            "sources": state.get("sources", []),
+            "search_results": state.get("search_results", []),
+            "needs_search": state["needs_search"],
+            "current_query": state["current_query"],
         }
 
     def _respond(self, state: AgentState) -> AgentState:
@@ -196,15 +202,19 @@ Conversation history:
         formatted_response = answer + sources_text
 
         # Update the last message with formatted version
-        if messages:
-            messages[-1].content = formatted_response
+        updated_messages = list(messages)
+        if updated_messages:
+            updated_messages[-1] = AIMessage(content=formatted_response)
 
         return {
-            **state,
-            "messages": messages
+            "messages": updated_messages,
+            "sources": state.get("sources", []),
+            "search_results": state.get("search_results", []),
+            "needs_search": state["needs_search"],
+            "current_query": state["current_query"],
         }
 
-    def run(self, query: str, conversation_state: AgentState = None) -> str:
+    def run(self, query: str, conversation_state: Optional[AgentState] = None) -> str:
         """Run agent on a query.
 
         Args:
@@ -221,7 +231,7 @@ Conversation history:
                 "sources": [],
                 "search_results": [],
                 "needs_search": False,
-                "current_query": ""
+                "current_query": "",
             }
         else:
             state = conversation_state
