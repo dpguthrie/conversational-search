@@ -202,12 +202,59 @@ uv run pytest
 uv run ruff check .
 ```
 
-### Add New Scorer
+### Add New Scorer (LLM-as-judge)
 
-1. Create `evals/scorers/your_scorer.py`
-2. Implement scorer class with `score(output, expected)` method
-3. Add Braintrust-compatible wrapper function
-4. Import and add to `evals/run_evals.py` scorers list
+LLM-as-judge scorers use the `BaseEvaluator` pattern for cleaner code:
+
+```python
+from evals.scorers.base_evaluator import BaseEvaluator, scorer_wrapper
+
+PROMPT = """Evaluate the output.
+OUTPUT: {{{output}}}
+Respond with: "good", "fair", "poor"
+"""
+
+class MyEvaluator(BaseEvaluator):
+    name = "my_evaluator"
+    model = "gpt-4o"  # Or "claude-3-5-sonnet-latest"
+    use_cot = True
+
+    def get_choice_scores(self) -> dict[str, float]:
+        return {"good": 1.0, "fair": 0.5, "poor": 0.0}
+
+    def get_prompt_template(self) -> str:
+        return PROMPT
+
+# Create Braintrust-compatible scorer
+my_scorer = scorer_wrapper(MyEvaluator)
+```
+
+Then add to `evals/run_evals.py`:
+```python
+from evals.scorers.my_evaluator import my_scorer
+
+Eval(scores=[my_scorer, ...], ...)
+```
+
+### Using Multiple LLM Models
+
+Scorers support multiple models via Braintrust's proxy:
+
+**OpenAI**: `gpt-4o`, `gpt-4-turbo`, `gpt-3.5-turbo`
+**Anthropic**: `claude-3-5-sonnet-latest`, `claude-sonnet-4-5-20250929`
+
+```python
+# Use Claude for complex reasoning
+factual_claude = FactualAccuracyEvaluator(model="claude-3-5-sonnet-latest")
+
+# Use GPT-4o for speed
+completeness_gpt = AnswerCompletenessEvaluator(model="gpt-4o")
+
+# Mix in same evaluation
+Eval(scores=[factual_claude, completeness_gpt], ...)
+```
+
+**Setup:** Set `BRAINTRUST_API_KEY` environment variable to use non-OpenAI models.
 
 ## Future Enhancements
 

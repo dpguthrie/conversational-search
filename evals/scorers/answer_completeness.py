@@ -1,53 +1,15 @@
-"""Answer completeness scorer using LLM-as-judge."""
-import os
-from typing import Dict, Any
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage
+"""Answer completeness scorer using BaseEvaluator pattern."""
+
+from evals.scorers.base_evaluator import BaseEvaluator, scorer_wrapper
 
 
-class AnswerCompletenessScorer:
-    """Evaluate if answer addresses all aspects of query."""
-
-    def __init__(self, model: str = "gpt-4"):
-        """Initialize scorer.
-
-        Args:
-            model: OpenAI model for judging
-        """
-        self.llm = ChatOpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            model=model,
-            temperature=0
-        )
-
-    def score(self, output: Dict[str, Any], expected: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Score answer completeness.
-
-        Args:
-            output: Agent output with query and answer
-            expected: Expected output (optional)
-
-        Returns:
-            Score dict with completeness score
-        """
-        query = output.get("query", "")
-        answer = output.get("answer", "")
-
-        if not query or not answer:
-            return {
-                "name": "answer_completeness",
-                "score": 0.0,
-                "metadata": {"error": "Missing query or answer"}
-            }
-
-        # LLM judging prompt
-        judge_prompt = f"""Evaluate if the answer fully addresses all aspects of the user's query.
+COMPLETENESS_PROMPT = """Evaluate if the answer fully addresses all aspects of the user's query.
 
 USER QUERY:
-{query}
+{{{input}}}
 
 ANSWER:
-{answer}
+{{{output}}}
 
 Evaluation criteria:
 1. Are all parts of the query addressed?
@@ -55,44 +17,68 @@ Evaluation criteria:
 3. Is important context included?
 4. Are there obvious gaps or missing information?
 
-Output format (JSON):
-{{
-    "completeness_score": 0.0-1.0,
-    "addressed_aspects": ["list of addressed aspects"],
-    "missing_aspects": ["list of missing aspects"],
-    "reasoning": "brief explanation"
-}}
+Provide your reasoning, then respond with one of: "complete", "mostly_complete", "partially_complete", "incomplete"
+"""
 
-Output only valid JSON."""
 
-        response = self.llm.invoke([SystemMessage(content=judge_prompt)])
+class AnswerCompletenessEvaluator(BaseEvaluator):
+    """Evaluate if answer addresses all aspects of query.
 
-        try:
-            import json
-            result = json.loads(response.content)
+    Uses the BaseEvaluator pattern with custom data extraction
+    to handle the query/answer/sources structure.
+    """
 
-            return {
-                "name": "answer_completeness",
-                "score": result.get("completeness_score", 0.0),
-                "metadata": {
-                    "addressed_aspects": result.get("addressed_aspects", []),
-                    "missing_aspects": result.get("missing_aspects", []),
-                    "reasoning": result.get("reasoning", "")
-                }
-            }
-        except json.JSONDecodeError:
-            return {
-                "name": "answer_completeness",
-                "score": 0.0,
-                "metadata": {
-                    "error": "Failed to parse LLM judge response",
-                    "raw_response": response.content
-                }
-            }
+    name = "answer_completeness"
+    model = "gpt-4o"
+    use_cot = True
+
+    def get_choice_scores(self) -> dict[str, float]:
+        """Map LLM choices to numeric scores."""
+        return {
+            "complete": 1.0,
+            "mostly_complete": 0.75,
+            "partially_complete": 0.5,
+            "incomplete": 0.0,
+        }
+
+    def get_prompt_template(self) -> str:
+        """Return the evaluation prompt."""
+        return COMPLETENESS_PROMPT
+
+    def _run_eval_sync(self, output, expected=None, **kwargs):
+        """Override to extract query and answer from output dict.
+
+        The output from our agent is a dict with:
+        - query: the user's question
+        - answer: the agent's response
+        - sources: retrieved sources
+
+        We need to map this to Braintrust's input/output format.
+        """
+        # Extract structured data
+        if isinstance(output, dict):
+            query = output.get("query", "")
+            answer = output.get("answer", "")
+
+            # Pass query as 'input' and answer as 'output' to the classifier
+            kwargs["input"] = query
+
+            # Call parent with the answer as output
+            return super()._run_eval_sync(answer, expected, **kwargs)
+        else:
+            # Fallback to direct call if output is just a string
+            return super()._run_eval_sync(output, expected, **kwargs)
+
+    async def _run_eval_async(self, output, expected=None, **kwargs):
+        """Async version with same data extraction logic."""
+        if isinstance(output, dict):
+            query = output.get("query", "")
+            answer = output.get("answer", "")
+            kwargs["input"] = query
+            return await super()._run_eval_async(answer, expected, **kwargs)
+        else:
+            return await super()._run_eval_async(output, expected, **kwargs)
 
 
 # Braintrust-compatible scorer function
-def answer_completeness_scorer(output, expected=None):
-    """Braintrust-compatible wrapper for answer completeness scorer."""
-    scorer = AnswerCompletenessScorer()
-    return scorer.score(output, expected)
+answer_completeness_scorer = scorer_wrapper(AnswerCompletenessEvaluator)
