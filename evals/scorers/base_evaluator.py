@@ -15,7 +15,7 @@ class BaseEvaluator(Scorer, abc.ABC):
     """
 
     name: str = "Evaluator"
-    model: str = "gpt-4o"
+    model: str = "gpt-4o-mini"
     use_cot: bool = True
 
     def __init__(self, model: str | None = None, use_cot: bool | None = None):
@@ -63,9 +63,7 @@ class BaseEvaluator(Scorer, abc.ABC):
         """Return scorer name for Braintrust."""
         return self.name
 
-    def _run_eval_sync(
-        self, output: Any, expected: Any = None, **kwargs: Any
-    ) -> Score:
+    def _run_eval_sync(self, output: Any, expected: Any = None, **kwargs: Any) -> Score:
         """Synchronous evaluation.
 
         Args:

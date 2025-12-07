@@ -1,25 +1,23 @@
 """Retrieval quality scorer using precision@K and LLM-based recall."""
+import json
 import os
 from typing import Dict, Any, List
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage
+
+from openai import OpenAI
 
 
 class RetrievalQualityScorer:
     """Evaluate quality of retrieved documents."""
 
-    def __init__(self, model: str = "gpt-4", k: int = 5):
+    def __init__(self, model: str = "gpt-4o-mini", k: int = 5):
         """Initialize scorer.
 
         Args:
             model: OpenAI model for judging
             k: Number of top results to evaluate (for Precision@K)
         """
-        self.llm = ChatOpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            model=model,
-            temperature=0
-        )
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.model = model
         self.k = k
 
     def score_precision_at_k(self, sources: List[Dict], query: str) -> float:
@@ -55,9 +53,14 @@ Content: {snippet}
 
 Answer only "RELEVANT" or "NOT_RELEVANT"."""
 
-            response = self.llm.invoke([SystemMessage(content=judge_prompt)])
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": judge_prompt}],
+                temperature=0,
+            )
 
-            if "RELEVANT" in response.content.upper() and "NOT_RELEVANT" not in response.content.upper():
+            content = response.choices[0].message.content or ""
+            if "RELEVANT" in content.upper() and "NOT_RELEVANT" not in content.upper():
                 relevant_count += 1
 
         precision = relevant_count / len(top_k)
@@ -99,11 +102,16 @@ Output format (JSON):
 
 Output only valid JSON."""
 
-        response = self.llm.invoke([SystemMessage(content=judge_prompt)])
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": judge_prompt}],
+            temperature=0,
+        )
+
+        content = response.choices[0].message.content or ""
 
         try:
-            import json
-            result = json.loads(response.content)
+            result = json.loads(content)
             return result.get("coverage_score", 0.5)
         except json.JSONDecodeError:
             return 0.5  # Default if parsing fails

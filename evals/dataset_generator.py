@@ -2,8 +2,12 @@
 import json
 import os
 from typing import List, Dict
+from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
+
+# Load environment variables
+load_dotenv()
 
 
 class ConversationGenerator:
@@ -107,28 +111,29 @@ def main():
     """Generate evaluation dataset."""
     generator = ConversationGenerator()
 
-    # Diverse topics across domains
+    # Current topics (2024-2025) to test search capabilities over recent events
+    # Avoids topics likely in LLM training data cutoff
     topics = [
-        "quantum computing",
-        "climate change solutions",
-        "artificial intelligence safety",
-        "space exploration",
-        "renewable energy",
-        "gene editing technology",
-        "cryptocurrency regulation",
-        "urban planning",
-        "mental health treatments",
-        "autonomous vehicles",
-        "Mars colonization",
-        "vaccine development",
-        "sustainable agriculture",
-        "neural networks",
-        "ocean conservation",
-        "educational technology",
-        "blockchain applications",
-        "carbon capture",
-        "drug discovery",
-        "smart cities"
+        "Google Willow quantum chip 2024",
+        "OpenAI o3 model capabilities",
+        "Anthropic Claude 3.5 Sonnet features",
+        "2024 US presidential election results",
+        "COP29 climate summit outcomes",
+        "SpaceX Starship test flights 2024",
+        "Apple Vision Pro reviews and adoption",
+        "Sam Altman OpenAI controversies 2024",
+        "EU AI Act implementation",
+        "Gaza conflict developments 2024",
+        "Ukraine war status 2025",
+        "Federal Reserve interest rate decisions 2024",
+        "Bitcoin ETF approvals impact",
+        "Taylor Swift Eras Tour economic impact",
+        "Hollywood strikes resolution 2024",
+        "Nvidia AI chip market dominance",
+        "TikTok ban legislation US",
+        "WHO disease X warnings",
+        "James Webb Space Telescope discoveries 2024",
+        "Weight loss drug Wegovy popularity"
     ]
 
     print("Generating synthetic evaluation dataset...")

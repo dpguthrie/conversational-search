@@ -131,7 +131,7 @@ class CitationQualityScorer:
         Returns:
             Score dict with composite citation quality score
         """
-        answer = output.get("answer", "")
+        answer = output.get("response", "")
         sources = output.get("sources", [])
 
         coverage = self.score_coverage(answer)

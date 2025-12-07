@@ -2,7 +2,6 @@
 
 from evals.scorers.base_evaluator import BaseEvaluator, scorer_wrapper
 
-
 COMPLETENESS_PROMPT = """Evaluate if the answer fully addresses all aspects of the user's query.
 
 USER QUERY:
@@ -29,7 +28,7 @@ class AnswerCompletenessEvaluator(BaseEvaluator):
     """
 
     name = "answer_completeness"
-    model = "gpt-4o"
+    model = "gpt-4o-mini"
     use_cot = True
 
     def get_choice_scores(self) -> dict[str, float]:
@@ -58,7 +57,7 @@ class AnswerCompletenessEvaluator(BaseEvaluator):
         # Extract structured data
         if isinstance(output, dict):
             query = output.get("query", "")
-            answer = output.get("answer", "")
+            answer = output.get("response", "")
 
             # Pass query as 'input' and answer as 'output' to the classifier
             kwargs["input"] = query
@@ -73,7 +72,7 @@ class AnswerCompletenessEvaluator(BaseEvaluator):
         """Async version with same data extraction logic."""
         if isinstance(output, dict):
             query = output.get("query", "")
-            answer = output.get("answer", "")
+            answer = output.get("response", "")
             kwargs["input"] = query
             return await super()._run_eval_async(answer, expected, **kwargs)
         else:

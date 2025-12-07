@@ -3,6 +3,7 @@ import os
 from typing import List, Dict, Optional, Literal
 from tavily import TavilyClient
 from datetime import datetime
+from braintrust import traced
 
 
 class TavilySearchTool:
@@ -16,6 +17,7 @@ class TavilySearchTool:
         """
         self.client = TavilyClient(api_key=api_key or os.getenv("TAVILY_API_KEY"))
 
+    @traced(type="tool", name="tavily_search")
     def search(
         self,
         query: str,
