@@ -1,4 +1,4 @@
-name: Daily modal queries
+name: Daily Run
 on:
   schedule:
     - cron: "0 6 * * *"  # daily at 06:00 UTC
